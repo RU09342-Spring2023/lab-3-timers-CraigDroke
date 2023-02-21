@@ -2,7 +2,7 @@
  * Part2.c
  *
  *  Created on: Feb 11, 2023
- *      Author: Russell Trafford
+ *      Author: Russel Trafford and Craig Droke
  *
  *      This code will need to change the speed of an LED between 3 different speeds by pressing a button.
  */
@@ -11,6 +11,8 @@
 
 void gpioInit();
 void timerInit();
+
+unsigned int count = 50000;                 //Variable to log count
 
 void main(){
 
@@ -29,16 +31,27 @@ void main(){
 
 
 void gpioInit(){
-    // @TODO Initialize the Red or Green LED
+    // Configure RED LED on P1.0 as Output
+          P1OUT &= ~BIT0;                         // Clear P1.0 output latch for a defined power-on state
+          P1DIR |= BIT0;                          // Set P1.0 to output direction
 
-    // @TODO Initialize Button 2.3
+          // Configure Green LED on P6.6 as Output
+          P6OUT &= ~BIT6;                         // Clear P6.6 output latch for a defined power-on state
+          P6DIR |= BIT6;                          // Set P6.6 to output direction
 
+
+          // Configure Button on P2.3 as input with pullup resistor
+          P2OUT |= BIT3;                          // Configure P2.3 as pulled-up
+          P2REN |= BIT3;                          // P2.3 pull-up register enable
+          P2IES &= ~BIT3;                         // P2.3 Low --> High edge
+          P2IE |= BIT3;
 
 }
 
 void timerInit(){
-    // @TODO Initialize Timer B1 in Continuous Mode using ACLK as the source CLK with Interrupts turned on
-
+    TB1CTL = TBSSEL_1 | MC_2 | TBCLR;           // ACLK, continuous mode, clear TAR
+    TB1CCR0 = 50000;                          // Set CCR0 to toggle every 1/2 second
+    TB1CCTL0 |= CCIE;                           // Enable CCR0 interrupt
 }
 
 
@@ -50,10 +63,16 @@ void timerInit(){
 #pragma vector=PORT2_VECTOR
 __interrupt void Port_2(void)
 {
-    // @TODO Remember that when you service the GPIO Interrupt, you need to set the interrupt flag to 0.
-
-    // @TODO When the button is pressed, you can change what the CCR0 Register is for the Timer. You will need to track what speed you should be flashing at.
-
+    if (count == 50000)                   // starts with inital clock of 50000
+       count = 20000;
+    else if (count == 20000)            // speeds up the cycle to 20000 (when button pressed)
+       count = 5000;
+    else if (count == 5000)             // speeds up the cycle to 5000 (when button pressed again)
+       count = 1000;
+    else {
+       count = 50000;                        // resets to initial clock of 50000 (when button pressed)
+              }
+    P2IFG &= ~BIT3;                     // clear P2.3 interrupt flag
 }
 
 
@@ -61,7 +80,8 @@ __interrupt void Port_2(void)
 #pragma vector = TIMER1_B0_VECTOR
 __interrupt void Timer1_B0_ISR(void)
 {
-    // @TODO You can toggle the LED Pin in this routine and if adjust your count in CCR0.
+    P6OUT ^= BIT6;       // toggles green LED
+    TB1CCR0 += count;        // offsets the clock
 }
 
 
